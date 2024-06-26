@@ -3,51 +3,71 @@
 
 #define SOUND PB0
 #define PIR PB1
-#define BUZZER PB2
+#define SWITCH PB2
 
-#define DELAY_TIME 60000
+#define COOLDOWN 5e3
+
+bool activated = false;
+
+void collapse();
+
+ISR(PCINT0_vect)
+{
+   _delay_ms(50); 
+
+	if (activated) {
+		if ((digitalRead(SOUND) == HIGH) || (digitalRead(PIR) == HIGH)){
+			collapse();
+			_delay_ms(COOLDOWN);
+		}
+	}
+}
 
 void collapse()
 {
 	for (int j =  0; j < 1000; j++) {
 		for (int i = 0; i < 25; i++){
-			digitalWrite(BUZZER, HIGH);
+			digitalWrite(SWITCH, HIGH);
 			delayMicroseconds(750);
-			digitalWrite(BUZZER, LOW);
+			digitalWrite(SWITCH, LOW);
 			delayMicroseconds(750);
 		}
 
-		delay(50);
+		_delay_ms(50);
 
 		for (int i = 0; i < 25; i++){
-			digitalWrite(BUZZER, HIGH);
+			digitalWrite(SWITCH, HIGH);
 			delayMicroseconds(500);
-			digitalWrite(BUZZER, LOW);
+			digitalWrite(SWITCH, LOW);
 			delayMicroseconds(500);
 		}
-		delay(100);
+		_delay_ms(100);
 	}
 }
 
 void setup(void)
 {
-	uart_puts("ZoneAnomaly started!");
+	uart_puts("AT+NAMBZoneAnomaly\r\n");
+	uart_puts("OK!\r\n");
 
 	pinMode(SOUND, INPUT);
 	pinMode(PIR, INPUT);
-	pinMode(BUZZER, OUTPUT);
+	pinMode(SWITCH, OUTPUT);
 
-	digitalWrite(BUZZER, LOW);
-	delay(DELAY_TIME);
+	digitalWrite(SWITCH, LOW);
 
-	uart_puts("Activated!\r\n");
+	GIMSK |= (1<<PCIE); 
+	PCMSK |= (1<<SOUND)|(1<<PIR);
+
+	sei(); 
 }
 
 void loop()
 {
-	if ((digitalRead(SOUND) == HIGH) || (digitalRead(PIR) == HIGH)){
-		uart_puts("Detected!\r\n");
-		collapse(); 
-		uart_puts("Activated!\r\n");
+	if (!activated) {
+		if (uart_getc() == '1'){
+			uart_puts("READY!\r\n");
+			activated = true;
+		}
 	}
 }
